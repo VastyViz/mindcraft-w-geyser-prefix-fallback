@@ -1051,12 +1051,13 @@ export async function goToPlayer(bot, player_name, closeness = 1) {
         return false;
     }
     const player = playerObj.entity;
-  
-    // If cheat mode is on, teleport directly.
-    if (bot.modes.isOn('cheat')) {
-      bot.chat(`/tp @s ${player.position.x} ${player.position.y} ${player.position.z}`);
-      log(bot, `Teleported to player ${player_name} using cheat mode.`);
-      return true;
+    const distance = bot.entity.position.distanceTo(player.position);
+    const teleportThreshold = 30; // Only teleport if distance > 100 blocks
+
+    if (bot.modes.isOn('cheat') && distance > teleportThreshold) {
+        bot.chat(`/tp @s ${player.position.x} ${player.position.y} ${player.position.z}`);
+        log(bot, `Teleported to player ${player_name} using cheat mode (distance ${distance.toFixed(2)}).`);
+        return true;
     }
   
     // Otherwise, use pathfinder to navigate.
