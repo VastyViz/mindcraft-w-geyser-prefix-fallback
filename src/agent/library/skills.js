@@ -1,8 +1,8 @@
 import * as mc from "../../utils/mcdata.js";
 import * as world from "./world.js";
 import pf from 'mineflayer-pathfinder';
-import Vec3 from 'vec3';import settings from '../../../settings.js';  // Adjust path as needed
-
+import Vec3 from 'vec3';
+import settings from '../../../settings.js';  // Adjust path as needed
 
 export function log(bot, message) {
     bot.output += message + '\n';
@@ -1035,29 +1035,38 @@ export async function goToNearestEntity(bot, entityType, min_distance=2, range=6
 }
 
 export async function goToPlayer(bot, player_name, closeness = 1) {
-    // Try to get the player by the given name
+    // Try to get the player by the given name.
     let playerObj = bot.players[player_name];
     if (!playerObj) {
-        // Fallback: try with the prefix from settings
-        const altName = settings.player_prefix + player_name;
-        playerObj = bot.players[altName];
-        if (playerObj) {
-            console.log(`Fallback: Using alternate username "${altName}" for "${player_name}".`);
-            player_name = altName;
-        }
+      // Fallback: try with the prefix from settings.
+      const altName = settings.player_prefix + player_name;
+      playerObj = bot.players[altName];
+      if (playerObj) {
+        console.log(`Fallback: Using alternate username "${altName}" for "${player_name}".`);
+        player_name = altName;
+      }
     }
     if (!playerObj || !playerObj.entity) {
-        log(bot, `Could not find player ${player_name}.`);
-        return false;
+      log(bot, `Could not find player ${player_name}.`);
+      return false;
     }
     const player = playerObj.entity;
+  
+    // If cheat mode is on, teleport directly.
+    if (bot.modes.isOn('cheat')) {
+      bot.chat(`/tp @s ${player.position.x} ${player.position.y} ${player.position.z}`);
+      log(bot, `Teleported to player ${player_name} using cheat mode.`);
+      return true;
+    }
+  
+    // Otherwise, use pathfinder to navigate.
     const movements = new pf.Movements(bot);
     bot.pathfinder.setMovements(movements);
     bot.pathfinder.setGoal(new pf.goals.GoalNear(player.position.x, player.position.y, player.position.z, closeness));
     log(bot, `Moving to player ${player_name}...`);
     while (bot.entity.position.distanceTo(player.position) > closeness) {
-        if (bot.interrupt_code) break;
-        await new Promise(resolve => setTimeout(resolve, 500));
+      if (bot.interrupt_code) break;
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
     log(bot, `Reached player ${player_name}.`);
     return true;
