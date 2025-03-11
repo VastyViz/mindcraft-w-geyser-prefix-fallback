@@ -1047,8 +1047,8 @@ export async function goToPlayer(bot, player_name, closeness = 1) {
       }
     }
     if (!playerObj || !playerObj.entity) {
-      log(bot, `Could not find player ${player_name}.`);
-      return false;
+        log(bot, `Could not find player ${player_name}.`);
+        return false;
     }
     const player = playerObj.entity;
   
@@ -1065,8 +1065,8 @@ export async function goToPlayer(bot, player_name, closeness = 1) {
     bot.pathfinder.setGoal(new pf.goals.GoalNear(player.position.x, player.position.y, player.position.z, closeness));
     log(bot, `Moving to player ${player_name}...`);
     while (bot.entity.position.distanceTo(player.position) > closeness) {
-      if (bot.interrupt_code) break;
-      await new Promise(resolve => setTimeout(resolve, 500));
+        if (bot.interrupt_code) break;
+        await new Promise(resolve => setTimeout(resolve, 500));
     }
     log(bot, `Reached player ${player_name}.`);
     return true;
