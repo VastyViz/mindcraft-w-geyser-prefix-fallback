@@ -1,7 +1,7 @@
 import * as mc from "../../utils/mcdata.js";
 import * as world from "./world.js";
 import pf from 'mineflayer-pathfinder';
-import Vec3 from 'vec3';
+import Vec3 from 'vec3';import settings from '../../../settings.js';  // Adjust path as needed
 
 
 export function log(bot, message) {
@@ -906,28 +906,30 @@ export async function consume(bot, itemName="") {
 
 
 export async function giveToPlayer(bot, itemType, username, num=1) {
-    /**
-     * Give one of the specified item to the specified player
-     * @param {MinecraftBot} bot, reference to the minecraft bot.
-     * @param {string} itemType, the name of the item to give.
-     * @param {string} username, the username of the player to give the item to.
-     * @param {number} num, the number of items to give. Defaults to 1.
-     * @returns {Promise<boolean>} true if the item was given, false otherwise.
-     * @example
-     * await skills.giveToPlayer(bot, "oak_log", "player1");
-     **/
-    let player = bot.players[username].entity
-    if (!player) {
-        log(bot, `Could not find ${username}.`);
+    // Attempt to retrieve the player by the given name
+    let playerObj = bot.players[username];
+    if (!playerObj) {
+        // Fallback: try with the prefix from settings
+        const altName = settings.player_prefix + username;
+        playerObj = bot.players[altName];
+        if (playerObj) {
+            console.log(`Fallback: Using alternate username "${altName}" for "${username}".`);
+            username = altName;
+        }
+    }
+    if (!playerObj || !playerObj.entity) {
+        log(bot, `Could not find player ${username}.`);
         return false;
     }
+    let player = playerObj.entity;
+    // Navigate near the player
     await goToPlayer(bot, username, 3);
-    // if we are 2 below the player
+    // Adjust vertical position if needed
     log(bot, bot.entity.position.y, player.position.y);
     if (bot.entity.position.y < player.position.y - 1) {
         await goToPlayer(bot, username, 1);
     }
-    // if we are too close, make some distance
+    // If too close, move away slightly
     if (bot.entity.position.distanceTo(player.position) < 2) {
         await moveAwayFromEntity(bot, player, 2);
     }
@@ -1032,52 +1034,53 @@ export async function goToNearestEntity(bot, entityType, min_distance=2, range=6
     return true;
 }
 
-export async function goToPlayer(bot, username, distance=3) {
-    /**
-     * Navigate to the given player.
-     * @param {MinecraftBot} bot, reference to the minecraft bot.
-     * @param {string} username, the username of the player to navigate to.
-     * @param {number} distance, the goal distance to the player.
-     * @returns {Promise<boolean>} true if the player was found, false otherwise.
-     * @example
-     * await skills.goToPlayer(bot, "player");
-     **/
-
-    if (bot.modes.isOn('cheat')) {
-        bot.chat('/tp @s ' + username);
-        log(bot, `Teleported to ${username}.`);
-        return true;
+export async function goToPlayer(bot, player_name, closeness = 1) {
+    // Try to get the player by the given name
+    let playerObj = bot.players[player_name];
+    if (!playerObj) {
+        // Fallback: try with the prefix from settings
+        const altName = settings.player_prefix + player_name;
+        playerObj = bot.players[altName];
+        if (playerObj) {
+            console.log(`Fallback: Using alternate username "${altName}" for "${player_name}".`);
+            player_name = altName;
+        }
     }
-
-    bot.modes.pause('self_defense');
-    bot.modes.pause('cowardice');
-    let player = bot.players[username].entity
-    if (!player) {
-        log(bot, `Could not find ${username}.`);
+    if (!playerObj || !playerObj.entity) {
+        log(bot, `Could not find player ${player_name}.`);
         return false;
     }
-
-    const move = new pf.Movements(bot);
-    bot.pathfinder.setMovements(move);
-    await bot.pathfinder.goto(new pf.goals.GoalFollow(player, distance), true);
-
-    log(bot, `You have reached ${username}.`);
+    const player = playerObj.entity;
+    const movements = new pf.Movements(bot);
+    bot.pathfinder.setMovements(movements);
+    bot.pathfinder.setGoal(new pf.goals.GoalNear(player.position.x, player.position.y, player.position.z, closeness));
+    log(bot, `Moving to player ${player_name}...`);
+    while (bot.entity.position.distanceTo(player.position) > closeness) {
+        if (bot.interrupt_code) break;
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    log(bot, `Reached player ${player_name}.`);
+    return true;
 }
 
-
-export async function followPlayer(bot, username, distance=4) {
-    /**
-     * Follow the given player endlessly. Will not return until the code is manually stopped.
-     * @param {MinecraftBot} bot, reference to the minecraft bot.
-     * @param {string} username, the username of the player to follow.
-     * @returns {Promise<boolean>} true if the player was found, false otherwise.
-     * @example
-     * await skills.followPlayer(bot, "player");
-     **/
-    let player = bot.players[username].entity
-    if (!player)
+export async function followPlayer(bot, username, distance = 4) {
+    // Try to get the player using the given username
+    let playerObj = bot.players[username];
+    if (!playerObj) {
+        // Fallback: try with the custom prefix from settings
+        const altUsername = settings.player_prefix + username;
+        playerObj = bot.players[altUsername];
+        if (playerObj) {
+            console.log(`Fallback: Using alternate username "${altUsername}" for "${username}".`);
+            username = altUsername;
+        }
+    }
+    if (!playerObj || !playerObj.entity) {
+        log(bot, `Could not find player ${username}.`);
         return false;
 
+    }
+    let player = playerObj.entity;
     const move = new pf.Movements(bot);
     bot.pathfinder.setMovements(move);
     bot.pathfinder.setGoal(new pf.goals.GoalFollow(player, distance), true);
@@ -1090,8 +1093,8 @@ export async function followPlayer(bot, username, distance=4) {
             await goToPlayer(bot, username);
         }
         if (bot.modes.isOn('unstuck')) {
-            const is_nearby = bot.entity.position.distanceTo(player.position) <= distance + 1;
-            if (is_nearby)
+            const isNearby = bot.entity.position.distanceTo(player.position) <= distance + 1;
+            if (isNearby)
                 bot.modes.pause('unstuck');
             else
                 bot.modes.unpause('unstuck');

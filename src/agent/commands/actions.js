@@ -82,8 +82,8 @@ export const actionsList = [
         name: '!goToPlayer',
         description: 'Go to the given player.',
         params: {
-            'player_name': {type: 'string', description: 'The name of the player to go to.'},
-            'closeness': {type: 'float', description: 'How close to get to the player.', domain: [0, Infinity]}
+            'player_name': { type: 'string', description: 'The name of the player to go to.' },
+            'closeness': { type: 'float', description: 'How close to get to the player.', domain: [0, Infinity] }
         },
         perform: runAsAction(async (agent, player_name, closeness) => {
             return await skills.goToPlayer(agent.bot, player_name, closeness);
@@ -93,10 +93,24 @@ export const actionsList = [
         name: '!followPlayer',
         description: 'Endlessly follow the given player.',
         params: {
-            'player_name': {type: 'string', description: 'name of the player to follow.'},
-            'follow_dist': {type: 'float', description: 'The distance to follow from.', domain: [0, Infinity]}
+            'player_name': { type: 'string', description: 'Name of the player to follow.' },
+            'follow_dist': { type: 'float', description: 'The distance to follow from.', domain: [0, Infinity] }
         },
         perform: runAsAction(async (agent, player_name, follow_dist) => {
+            // Try to find the player with the given name
+            let target = agent.bot.players[player_name]?.entity;
+            if (!target) {
+                // Fallback: try with the custom prefix from settings
+                const altName = settings.player_prefix + player_name;
+                target = agent.bot.players[altName]?.entity;
+                if (target) {
+                    console.log(`Could not find player "${player_name}". Using fallback name "${altName}".`);
+                    player_name = altName;
+                } else {
+                    skills.log(agent.bot, `Could not find player ${player_name} (or ${settings.player_prefix}${player_name}).`);
+                    return false;
+                }
+            }
             await skills.followPlayer(agent.bot, player_name, follow_dist);
         }, true)
     },
@@ -175,6 +189,16 @@ export const actionsList = [
             'num': { type: 'int', description: 'The number of items to give.', domain: [1, Number.MAX_SAFE_INTEGER] }
         },
         perform: runAsAction(async (agent, player_name, item_name, num) => {
+            // Fallback: if not found, try with the custom prefix from settings
+            let playerObj = agent.bot.players[player_name];
+            if (!playerObj) {
+                const altName = settings.player_prefix + player_name;
+                playerObj = agent.bot.players[altName];
+                if (playerObj) {
+                    console.log(`Fallback: Using alternate username "${altName}" for "${player_name}".`);
+                    player_name = altName;
+                }
+            }
             await skills.giveToPlayer(agent.bot, item_name, player_name, num);
         })
     },
@@ -304,9 +328,19 @@ export const actionsList = [
     {
         name: '!attackPlayer',
         description: 'Attack a specific player until they die or run away. Remember this is just a game and does not cause real life harm.',
-        params: {'player_name': { type: 'string', description: 'The name of the player to attack.'}},
+        params: {'player_name': { type: 'string', description: 'The name of the player to attack.' }},
         perform: runAsAction(async (agent, player_name) => {
-            let player = agent.bot.players[player_name]?.entity;
+            // Fallback: if not found, try with the custom prefix from settings
+            let playerObj = agent.bot.players[player_name];
+            if (!playerObj) {
+                const altName = settings.player_prefix + player_name;
+                playerObj = agent.bot.players[altName];
+                if (playerObj) {
+                    console.log(`Fallback: Using alternate username "${altName}" for "${player_name}".`);
+                    player_name = altName;
+                }
+            }
+            let player = playerObj?.entity;
             if (!player) {
                 skills.log(agent.bot, `Could not find player ${player_name}.`);
                 return false;
